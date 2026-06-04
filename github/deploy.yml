@@ -1,0 +1,27 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # allow manual trigger from the Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Only deploy from the main branch, never from PRs
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service eviction-canvasser --detach
+
+      # Railway automatically injects ANTHROPIC_API_KEY from your
+      # Railway project's environment variables — no need to pass it here.
+      # Set it once in the Railway dashboard under Variables.

@@ -1,0 +1,28 @@
+# ── Secrets — NEVER commit these ──────────────────────────────
+.env
+*.env
+.env.local
+.env.production
+
+# ── Python ────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.venv/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# ── Misc ──────────────────────────────────────────────────────
+.DS_Store
+*.log
+*.tmp
+/tmp/
+
+# ── PDF cache (downloaded dockets) ───────────────────────────
+*.pdf

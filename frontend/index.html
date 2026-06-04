@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baltimore Eviction Canvasser Tool</title>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --border: #e4e2db;
+    --border-strong: #c8c5bc;
+    --text: #1a1916;
+    --text-muted: #6b6860;
+    --text-faint: #9c9a95;
+    --accent: #1a1916;
+    --red: #c0392b;
+    --red-bg: #fdf0ee;
+    --amber: #c27d10;
+    --amber-bg: #fdf6e8;
+    --green: #2d7a4f;
+    --green-bg: #eef7f2;
+    --blue: #1c5c9e;
+    --blue-bg: #eef4fb;
+    --radius: 8px;
+    --radius-lg: 12px;
+    --font: 'Georgia', 'Times New Roman', serif;
+    --font-ui: system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--font-ui);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  .shell { display: flex; min-height: 100vh; }
+  .sidebar {
+    width: 240px; min-width: 240px; background: var(--surface);
+    border-right: 1px solid var(--border); padding: 1.5rem 0;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+    display: flex; flex-direction: column;
+  }
+  .main { flex: 1; padding: 2rem; max-width: 900px; }
+
+  /* Sidebar */
+  .logo {
+    padding: 0 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  .logo-mark { font-size: 20px; margin-bottom: 4px; }
+  .logo-name { font-size: 13px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+  .logo-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  .nav-section { padding: 0 0.75rem; margin-bottom: 0.25rem; }
+  .nav-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-faint); padding: 0 0.5rem; margin-bottom: 4px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: var(--radius);
+    font-size: 13px; cursor: pointer; color: var(--text-muted);
+    border: none; background: none; width: 100%; text-align: left;
+    transition: background 0.1s;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: var(--text); color: white; font-weight: 500; }
+  .nav-item .count {
+    margin-left: auto; font-size: 11px; background: rgba(255,255,255,0.2);
+    padding: 1px 6px; border-radius: 10px;
+  }
+  .nav-item:not(.active) .count { background: var(--bg); color: var(--text-muted); }
+
+  .sidebar-footer { margin-top: auto; padding: 1rem 1.25rem; border-top: 1px solid var(--border); }
+  .budget-bar { background: var(--bg); border-radius: 4px; height: 4px; margin: 6px 0; overflow: hidden; }
+  .budget-fill { height: 100%; background: var(--green); border-radius: 4px; transition: width 0.3s; }
+
+  /* Page sections */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* Headers */
+  .page-header { margin-bottom: 1.5rem; }
+  .page-title { font-size: 22px; font-weight: 600; color: var(--text); }
+  .page-sub { font-size: 14px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+
+  /* Cards */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem;
+  }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 0.75rem; }
+
+  /* Alerts */
+  .alert { border-radius: var(--radius); padding: 10px 14px; font-size: 13px; line-height: 1.6; margin-bottom: 1rem; }
+  .alert-info { background: var(--blue-bg); color: var(--blue); border-left: 3px solid var(--blue); }
+  .alert-warn { background: var(--amber-bg); color: var(--amber); border-left: 3px solid var(--amber); }
+  .alert-danger { background: var(--red-bg); color: var(--red); border-left: 3px solid var(--red); }
+  .alert-success { background: var(--green-bg); color: var(--green); border-left: 3px solid var(--green); }
+
+  /* Buttons */
+  button { font-family: var(--font-ui); cursor: pointer; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: var(--radius);
+    font-size: 13px; font-weight: 500; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); transition: all 0.1s;
+  }
+  .btn:hover { background: var(--bg); }
+  .btn-primary { background: var(--text); color: white; border-color: var(--text); }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-danger { background: var(--red); color: white; border-color: var(--red); }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Forms */
+  input, select, textarea {
+    font-family: var(--font-ui); font-size: 13px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 7px 10px; color: var(--text); background: var(--surface); width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+  label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .field { display: flex; flex-direction: column; }
+  textarea { resize: vertical; min-height: 70px; }
+
+  /* Docket source tiles */
+  .source-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .source-tile {
+    border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 1rem; cursor: pointer; transition: all 0.15s;
+    background: var(--surface);
+  }
+  .source-tile:hover { border-color: var(--border-strong); }
+  .source-tile.selected { border-color: var(--text); border-width: 2px; }
+  .source-tile-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .source-tile-addr { font-size: 11px; color: var(--text-muted); }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border-strong); border-radius: var(--radius-lg);
+    padding: 2rem; text-align: center; cursor: pointer;
+    transition: all 0.15s; background: var(--surface);
+  }
+  .upload-zone:hover, .upload-zone.drag-over { border-color: var(--blue); background: var(--blue-bg); }
+  .upload-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
+  .upload-text { font-size: 14px; font-weight: 500; color: var(--text); }
+  .upload-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+  /* Progress / status */
+  .progress-track { background: var(--bg); border-radius: 4px; height: 6px; overflow: hidden; margin: 1rem 0; }
+  .progress-fill { height: 100%; background: var(--text); border-radius: 4px; transition: width 0.5s; }
+  .status-log { background: #1a1916; color: #e8e6e1; border-radius: var(--radius); padding: 1rem; font-size: 12px; font-family: monospace; max-height: 180px; overflow-y: auto; line-height: 1.7; }
+  .log-entry { opacity: 0.8; }
+  .log-entry.ok { color: #6fcf97; opacity: 1; }
+  .log-entry.warn { color: #f2c94c; opacity: 1; }
+  .log-entry.err { color: #eb5757; opacity: 1; }
+
+  /* Case list */
+  .case-list { display: flex; flex-direction: column; gap: 8px; }
+  .case-item {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1rem 1.25rem;
+    display: flex; align-items: center; gap: 12px;
+    cursor: pointer; transition: border-color 0.1s;
+  }
+  .case-item:hover { border-color: var(--border-strong); }
+  .case-item.selected { border-color: var(--text); border-width: 2px; }
+  .case-avatar {
+    width: 38px; height: 38px; border-radius: 50%; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600; color: var(--text-muted); flex-shrink: 0;
+  }
+  .case-info { flex: 1; min-width: 0; }
+  .case-name { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .case-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .case-right { text-align: right; flex-shrink: 0; }
+  .urgency-badge {
+    display: inline-block; padding: 3px 9px; border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+  }
+  .urgency-high { background: var(--red-bg); color: var(--red); }
+  .urgency-medium { background: var(--amber-bg); color: var(--amber); }
+  .urgency-low { background: var(--green-bg); color: var(--green); }
+  .urgency-none { background: var(--bg); color: var(--text-muted); }
+
+  /* Walk sheet */
+  @media print {
+    .sidebar, .no-print { display: none !important; }
+    .main { padding: 0; max-width: 100%; }
+    .ws-page { page-break-after: always; }
+    .ws-page:last-child { page-break-after: avoid; }
+  }
+  .ws-page {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 1.5rem 2rem;
+    margin-bottom: 1.5rem;
+    font-family: var(--font);
+  }
+  .ws-masthead { border-bottom: 2px solid var(--text); padding-bottom: 1rem; margin-bottom: 1.25rem; }
+  .ws-org { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-muted); margin-bottom: 4px; }
+  .ws-title { font-size: 20px; font-weight: 700; color: var(--text); }
+  .ws-meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.25rem; padding: 1rem; background: var(--bg); border-radius: var(--radius); }
+  .ws-meta-item { }
+  .ws-meta-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-family: var(--font-ui); }
+  .ws-meta-value { font-size: 14px; color: var(--text); margin-top: 2px; font-weight: 600; }
+  .ws-section { margin-bottom: 1.25rem; }
+  .ws-section-head {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 4px;
+    margin-bottom: 0.75rem; font-family: var(--font-ui);
+  }
+  .ws-script {
+    background: var(--bg); border-left: 3px solid var(--border-strong);
+    padding: 10px 14px; border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 14px; line-height: 1.7; font-style: italic;
+  }
+  .ws-rights { display: flex; flex-direction: column; gap: 8px; }
+  .ws-right { display: flex; gap: 10px; }
+  .ws-right-bullet {
+    width: 20px; height: 20px; border-radius: 50%; background: var(--text);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+    font-size: 10px; color: white; font-weight: 700; font-family: var(--font-ui);
+  }
+  .ws-right-body { font-size: 13px; line-height: 1.6; }
+  .ws-right-name { font-weight: 700; }
+  .ws-actions { display: flex; flex-direction: column; gap: 6px; counter-reset: action; }
+  .ws-action { display: flex; gap: 10px; font-size: 13px; line-height: 1.5; counter-increment: action; }
+  .ws-action-num {
+    min-width: 22px; height: 22px; border: 1.5px solid var(--text);
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex-shrink: 0; font-family: var(--font-ui);
+  }
+  .ws-resources { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .ws-resource { background: var(--bg); border-radius: var(--radius); padding: 8px 10px; }
+  .ws-resource-name { font-size: 12px; font-weight: 700; font-family: var(--font-ui); }
+  .ws-resource-contact { font-size: 12px; color: var(--blue); font-family: var(--font-ui); }
+  .ws-tip { font-size: 12px; color: var(--text-muted); font-style: italic; padding-top: 8px; border-top: 1px dashed var(--border); font-family: var(--font-ui); }
+  .ws-footer { font-size: 10px; color: var(--text-faint); text-align: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); font-family: var(--font-ui); }
+
+  /* Stats */
+  .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; }
+  .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-size: 26px; font-weight: 700; color: var(--text); margin-top: 2px; }
+
+  /* Tabs */
+  .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem; }
+  .tab { padding: 8px 16px; font-size: 13px; border: none; background: none; cursor: pointer; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); font-weight: 600; }
+
+  /* Misc */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
+  .flex { display: flex; align-items: center; gap: 8px; }
+  .flex-end { justify-content: flex-end; }
+  .flex-between { justify-content: space-between; }
+  .mt { margin-top: 0.75rem; }
+  .empty { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 14px; }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.3; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; color: var(--text-muted); }
+  .small { font-size: 12px; color: var(--text-muted); }
+
+  .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">⚖️</div>
+      <div class="logo-name">Eviction Canvasser</div>
+      <div class="logo-sub">Baltimore City · Tenant Rights</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Workflow</div>
+      <button class="nav-item active" onclick="showPage('fetch')">
+        📥 Fetch docket
+      </button>
+      <button class="nav-item" onclick="showPage('cases')">
+        📋 Cases <span class="count" id="nav-case-count">0</span>
+      </button>
+      <button class="nav-item" onclick="showPage('walksheets')">
+        🗂 Walk sheets <span class="count" id="nav-ws-count">0</span>
+      </button>
+    </div>
+
+    <div class="nav-section" style="margin-top:0.5rem;">
+      <div class="nav-label">Reference</div>
+      <button class="nav-item" onclick="showPage('rights')">📜 Rights guide</button>
+      <button class="nav-item" onclick="showPage('manual')">✏️ Add manually</button>
+      <button class="nav-item" onclick="showPage('setup')">⚙️ Setup</button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="small">Budget used (this session)</div>
+      <div class="budget-bar"><div class="budget-fill" id="budget-fill" style="width:0%"></div></div>
+      <div class="small" id="budget-text">$0.00 / $0.20</div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- FETCH PAGE -->
+    <div id="page-fetch" class="page active">
+      <div class="page-header">
+        <div class="page-title">Fetch this week's docket</div>
+        <div class="page-sub">Download and parse the upcoming Baltimore City District Court docket PDF, extract landlord-tenant case numbers, then look up full case details from Maryland Case Search.</div>
+      </div>
+
+      <div class="alert alert-info">
+        <strong>How it works:</strong> The District Court posts weekly PDFs listing all scheduled cases.
+        We extract case numbers matching the LT (landlord-tenant) pattern, then look each one up
+        on the Maryland Judiciary case search API to get tenant names, addresses, and hearing info.
+        Finally, Claude generates a walk sheet for each case.
+      </div>
+
+      <div class="card">
+        <div class="card-title">Step 1 — Select courthouse</div>
+        <div class="source-grid" id="source-grid">
+          <div class="source-tile selected" data-loc="wabash" onclick="selectSource(this)">
+            <div class="source-tile-name">Wabash (main)</div>
+            <div class="source-tile-addr">1400 E. North Ave · most LT cases</div>
+          </div>
+          <div class="source-tile" data-loc="hargrove" onclick="selectSource(this)">
+            <div class="source-tile-name">Hargrove (Patapsco)</div>
+            <div class="source-tile-addr">5800 Wabash Ave · SW Baltimore</div>
+          </div>
+          <div class="source-tile" data-loc="eastside" onclick="selectSource(this)">
+            <div class="source-tile-name">Eastside (North Ave)</div>
+            <div class="source-tile-addr">1400 E. North Ave · East Baltimore</div>
+          </div>
+          <div class="source-tile" data-loc="hubbard" onclick="selectSource(this)">
+            <div class="source-tile-name">Hubbard (North Calvert)</div>
+            <div class="source-tile-addr">700 E. Patapsco Ave · Central</div>
+          </div>
+        </div>
+
+        <div class="card-title" style="margin-top:1rem;">Step 2 — Get the PDF</div>
+        <div class="tabs">
+          <button class="tab active" onclick="switchFetchTab('auto')">Auto-download</button>
+          <button class="tab" onclick="switchFetchTab('upload')">Upload PDF manually</button>
+          <button class="tab" onclick="switchFetchTab('paste')">Paste case numbers</button>
+        </div>
+
+        <div id="ftab-auto">
+          <p class="small" style="margin-bottom:10px;">The backend will attempt to fetch the docket PDF directly from mdcourts.gov. If it's blocked, you'll be prompted to download it yourself.</p>
+          <div class="flex">
+            <div class="field" style="width:100px;">
+              <label>Max cases</label>
+              <input type="number" id="max-cases" value="20" min="1" max="60">
+            </div>
+            <div style="margin-top:18px; padding-left:8px;">
+              <span class="small">≈ $<span id="cost-est">0.06</span> in AI costs</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="ftab-upload" style="display:none;">
+          <p class="small" style="margin-bottom:10px;">Download the PDF from mdcourts.gov in your browser, then upload it here.</p>
+          <div class="upload-zone" id="upload-zone" onclick="document.getElementById('pdf-upload').click()">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">Click to upload docket PDF</div>
+            <div class="upload-sub">or drag and drop · .pdf files only</div>
+          </div>
+          <input type="file" id="pdf-upload" accept=".pdf" style="display:none;" onchange="handlePdfUpload(this)">
+          <div id="upload-status" class="small mt"></div>
+        </div>
+
+        <div id="ftab-paste" style="display:none;">
+          <p class="small" style="margin-bottom:6px;">Paste case numbers one per line (format: D05LT26XXXXXXXXX)</p>
+          <textarea id="paste-cases" placeholder="D05LT26102566038&#10;D05LT26102566039&#10;..."></textarea>
+        </div>
+
+        <div class="flex mt">
+          <button class="btn btn-primary" id="run-btn" onclick="runFetch()">
+            ▶ Run now
+          </button>
+          <button class="btn" onclick="previewCases()" id="preview-btn">Preview case numbers only</button>
+          <span class="small" id="run-status"></span>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div id="progress-area" style="display:none;" class="card">
+        <div class="flex flex-between" style="margin-bottom:8px;">
+          <div class="card-title" style="margin:0;">Processing</div>
+          <span class="small" id="progress-label">0 / 0</span>
+        </div>
+        <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+        <div class="status-log" id="status-log"></div>
+      </div>
+    </div>
+
+    <!-- CASES PAGE -->
+    <div id="page-cases" class="page">
+      <div class="page-header">
+        <div class="flex flex-between">
+          <div>
+            <div class="page-title">Case list</div>
+            <div class="page-sub">Click any case to view its walk sheet, or generate all at once.</div>
+          </div>
+          <div class="flex no-print">
+            <button class="btn" onclick="generateAllWalkSheets()" id="gen-all-btn">Generate all walk sheets</button>
+            <button class="btn btn-primary" onclick="showPage('walksheets')">View walk sheets →</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-row" id="case-stats" style="display:none;">
+        <div class="stat"><div class="stat-label">Total cases</div><div class="stat-value" id="s-total">0</div></div>
+        <div class="stat"><div class="stat-label">Upcoming</div><div class="stat-value" id="s-upcoming">0</div></div>
+        <div class="stat"><div class="stat-label">High urgency</div><div class="stat-value" id="s-high">0</div></div>
+        <div class="stat"><div class="stat-label">Walk sheets</div><div class="stat-value" id="s-ws">0</div></div>
+      </div>
+
+      <div id="case-list-area">
+        <div class="empty"><div class="empty-icon">📋</div>No cases loaded. Go to "Fetch docket" to get started.</div>
+      </div>
+    </div>
+
+    <!-- WALK SHEETS PAGE -->
+    <div id="page-walksheets" class="page">
+      <div class="page-header no-print">
+        <div class="flex flex-between">
+          <div>
+            <div class="page-title">Walk sheets</div>
+            <div class="page-sub">Print-ready canvasser sheets, one per case. Use Ctrl+P / ⌘P to print.</div>
+          </div>
+          <div class="flex">
+            <button class="btn" onclick="window.print()">🖨 Print all</button>
+            <button class="btn btn-primary" onclick="downloadWalkSheets()">⬇ Download JSON</button>
+          </div>
+        </div>
+      </div>
+      <div id="ws-area">
+        <div class="empty"><div class="empty-icon">🗂</div>No walk sheets generated yet.</div>
+      </div>
+    </div>
+
+    <!-- RIGHTS PAGE -->
+    <div id="page-rights" class="page">
+      <div class="page-header">
+        <div class="page-title">Maryland / Baltimore tenant rights</div>
+        <div class="page-sub">Quick reference for canvassers. All rights are specific to Maryland Real Property Article and Baltimore City code.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Failure to pay rent (most common case type)</div>
+        <div class="ws-rights">
+          <div class="ws-right"><div class="ws-right-bullet">✓</div><div class="ws-right-body"><span class="ws-right-name">Right of redemption</span> — Tenant can pay ALL owed rent + court fees before judgment to stop the eviction. This can even happen at the courthouse on hearing day. (Md. Real Property § 8-401)</div></div>
+          <div class="ws-right"><div class="ws-right-bullet">✓</div><div class="ws-right-body"><span class="ws-right-name">Right to appear</span> — Tenant can attend and defend: raise habitability issues, contest the amount owed, or present evidence of payment.</div></div>
+          <div class="ws-right"><div class="ws-right-bullet">✓</div><div class="ws-right-body"><span class="ws-right-name">4-business-day buffer</span> — After a judgment, the landlord must wait at least 4 business days before filing a warrant of restitution. This is time to find assistance.</div></div>
+          <div class="ws-right"><div class="ws-right-bullet">✓</div><div class="ws-right-body"><span class="ws-right-name">14-day eviction notice</span> — In Baltimore City specifically, landlord must mail eviction notice 14 days before the physical eviction date (stricter than state law).</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">All tenants</div>
+        <div class="ws-rights">
+          <div class="ws-right"><div class="ws-right-bullet">✓</div><div class="ws-right-body"><span class="ws-right-name">Rent escrow</span> — If the landlord fails to maintain habitable conditions, tenant can pay rent into a court escrow account instead of to the landlord. (§ 8-211)</div></div>
+          <div class="ws-right"><div class="ws-right-bullet">✓</div><div class="ws-right-body"><span class="ws-right-name">Retaliation protection</span> — Landlord cannot evict in retaliation for complaining to housing authorities, withholding rent legally, or organizing with other tenants. (§ 8-208.1)</div></div>
+          <div class="ws-right"><div class="ws-right-bullet">✓</div><div class="ws-right-body"><span class="ws-right-name">Habitability standard</span> — Landlord must maintain functioning heat, plumbing, and freedom from pests. Violations are an affirmative defense in eviction cases.</div></div>
+          <div class="ws-right"><div class="ws-right-bullet">✓</div><div class="ws-right-body"><span class="ws-right-name">Free legal help</span> — Maryland Legal Aid (410-539-5340), District Court Help Center (410-260-1392), and volunteer lawyers are available at Wabash every weekday morning.</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Emergency resources</div>
+        <div class="ws-resources" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="ws-resource"><div class="ws-resource-name">Maryland Legal Aid</div><div class="ws-resource-contact">410-539-5340</div></div>
+          <div class="ws-resource"><div class="ws-resource-name">211 Maryland</div><div class="ws-resource-contact">Dial 211 · emergency rental aid</div></div>
+          <div class="ws-resource"><div class="ws-resource-name">MD Court Help Center</div><div class="ws-resource-contact">410-260-1392 · mdcourts.gov/helpcenter</div></div>
+          <div class="ws-resource"><div class="ws-resource-name">Public Justice Center</div><div class="ws-resource-contact">410-625-9409 · Mon–Fri at Wabash</div></div>
+          <div class="ws-resource"><div class="ws-resource-name">Baltimore City DSS</div><div class="ws-resource-contact">443-378-4999 · eviction prevention</div></div>
+          <div class="ws-resource"><div class="ws-resource-name">DHCD ERAP</div><div class="ws-resource-contact">dhcd.maryland.gov · rental assistance</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUAL ENTRY PAGE -->
+    <div id="page-manual" class="page">
+      <div class="page-header">
+        <div class="page-title">Add case manually</div>
+        <div class="page-sub">For cases obtained from court visits, FOIA requests, or DC Superior Court dockets.</div>
+      </div>
+      <div class="card">
+        <div class="form-row">
+          <div class="field"><label>Tenant name(s)</label><input type="text" id="m-tenant" placeholder="e.g. Maria Santos"></div>
+          <div class="field"><label>Case number</label><input type="text" id="m-casenum" placeholder="e.g. D05LT26102566038"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Property address</label><input type="text" id="m-address" placeholder="1234 N. Charles St, Apt 3B"></div>
+          <div class="field"><label>City &amp; ZIP</label><input type="text" id="m-city-zip" placeholder="Baltimore, MD 21201"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label>Hearing date</label><input type="date" id="m-date"></div>
+          <div class="field"><label>Case type</label>
+            <select id="m-casetype">
+              <option>Failure to Pay Rent</option>
+              <option>Breach of Lease</option>
+              <option>Holdover</option>
+              <option>Summary Ejectment</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:10px;"><label>Landlord / plaintiff</label><input type="text" id="m-landlord" placeholder="ABC Property Management"></div>
+        <div class="field" style="margin-bottom:12px;"><label>Notes (housing conditions, prior complaints, language needs, etc.)</label><textarea id="m-notes" placeholder="e.g. Tenant reported no heat since December. Three children in household. Speaks Spanish."></textarea></div>
+        <button class="btn btn-primary" onclick="addManual()">Add case + generate walk sheet</button>
+      </div>
+    </div>
+
+    <!-- SETUP PAGE -->
+    <div id="page-setup" class="page">
+      <div class="page-header">
+        <div class="page-title">Setup &amp; configuration</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Backend server</div>
+        <div class="field" style="margin-bottom:10px;">
+          <label>API base URL (where your Flask server is running)</label>
+          <input type="text" id="api-url" value="http://localhost:5050" placeholder="http://localhost:5050">
+        </div>
+        <button class="btn" onclick="testConnection()">Test connection</button>
+        <div id="conn-status" class="small mt"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Running the backend</div>
+        <div class="alert alert-info">
+          Run the Flask server with your Anthropic API key:<br><br>
+          <code style="font-family:monospace;font-size:13px;">
+            ANTHROPIC_API_KEY=sk-ant-... python3 app.py
+          </code><br><br>
+          The server starts on <strong>http://localhost:5050</strong>. Keep it running while using this tool.
+        </div>
+        <div class="card-title" style="margin-top:1rem;">Cost estimate</div>
+        <p class="small">Each walk sheet uses ~600 input + 600 output tokens on Claude Sonnet ≈ <strong>$0.003</strong>. A 20-case run costs roughly <strong>$0.06</strong>. Max batch of 60 cases = <strong>~$0.18</strong>, under the $0.20 budget.</p>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+let cases = [];
+let walkSheets = [];
+let selectedSource = "wabash";
+let fetchTab = "auto";
+let apiBase = "http://localhost:5050";
+let totalSpent = 0;
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById("page-" + id).classList.add("active");
+  document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+  const map = {fetch:0,cases:1,walksheets:2,rights:3,manual:4,setup:5};
+  document.querySelectorAll(".nav-item")[map[id]]?.classList.add("active");
+}
+
+function selectSource(el) {
+  document.querySelectorAll(".source-tile").forEach(t => t.classList.remove("selected"));
+  el.classList.add("selected");
+  selectedSource = el.dataset.loc;
+}
+
+function switchFetchTab(t) {
+  fetchTab = t;
+  ["auto","upload","paste"].forEach(id => {
+    document.getElementById("ftab-"+id).style.display = id===t ? "block" : "none";
+  });
+  document.querySelectorAll(".tab").forEach((el,i) => el.classList.toggle("active", ["auto","upload","paste"][i]===t));
+}
+
+// ── Cost estimator ─────────────────────────────────────────────────────────────
+document.getElementById("max-cases").addEventListener("input", function() {
+  document.getElementById("cost-est").textContent = (this.value * 0.003).toFixed(2);
+});
+
+// ── Logging ───────────────────────────────────────────────────────────────────
+function log(msg, type="") {
+  const el = document.getElementById("status-log");
+  const d = document.createElement("div");
+  d.className = "log-entry " + type;
+  d.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setProgress(n, total) {
+  const pct = total > 0 ? (n / total * 100) : 0;
+  document.getElementById("progress-fill").style.width = pct + "%";
+  document.getElementById("progress-label").textContent = `${n} / ${total}`;
+}
+
+// ── Main fetch flow ───────────────────────────────────────────────────────────
+async function runFetch() {
+  apiBase = document.getElementById("api-url").value.replace(/\/$/, "");
+  document.getElementById("progress-area").style.display = "block";
+  document.getElementById("status-log").innerHTML = "";
+  document.getElementById("run-btn").disabled = true;
+
+  try {
+    if (fetchTab === "auto") {
+      await runAutoFetch();
+    } else if (fetchTab === "paste") {
+      await runPasteFetch();
+    } else {
+      log("Please upload a PDF first using the Upload tab, then click Run.", "warn");
+    }
+  } finally {
+    document.getElementById("run-btn").disabled = false;
+  }
+}
+
+async function runAutoFetch() {
+  const limit = parseInt(document.getElementById("max-cases").value) || 20;
+  log(`Requesting full run: ${selectedSource}, up to ${limit} cases…`);
+
+  const resp = await fetch(`${apiBase}/api/full-run`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({location: selectedSource, limit})
+  });
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({error: resp.statusText}));
+    if (err.workaround) {
+      log("PDF blocked. " + err.workaround, "warn");
+      log("Switching to Upload tab — please download and re-upload the PDF.", "warn");
+      log("URL to download: " + err.manual_url, "warn");
+      switchFetchTab("upload");
+      return;
+    }
+    throw new Error(err.error || resp.statusText);
+  }
+
+  const data = await resp.json();
+  log(`PDF had ${data.total_in_pdf} LT cases. Processed ${data.total_processed}.`, "ok");
+  totalSpent += data.estimated_cost_usd || 0;
+  updateBudget();
+  ingestCases(data.cases);
+}
+
+async function runPasteFetch() {
+  const text = document.getElementById("paste-cases").value.trim();
+  const numbers = text.split(/\s+/).map(s => s.trim().toUpperCase()).filter(s => /D05LT\d+/i.test(s));
+  if (!numbers.length) { log("No valid case numbers found. Format: D05LT26XXXXXXXXX", "warn"); return; }
+  const limit = parseInt(document.getElementById("max-cases").value) || 20;
+  const toProcess = numbers.slice(0, limit);
+  log(`Found ${numbers.length} case numbers. Processing ${toProcess.length}…`);
+  setProgress(0, toProcess.length);
+
+  const resp = await fetch(`${apiBase}/api/lookup-cases`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({case_numbers: toProcess, generate_walk_sheets: true})
+  });
+  if (!resp.ok) throw new Error((await resp.json()).error || resp.statusText);
+  const data = await resp.json();
+  log(`Processed ${data.total_processed} cases.`, "ok");
+  totalSpent += data.total_processed * 0.003;
+  updateBudget();
+  ingestCases(data.cases);
+}
+
+async function previewCases() {
+  apiBase = document.getElementById("api-url").value.replace(/\/$/, "");
+  document.getElementById("progress-area").style.display = "block";
+  document.getElementById("status-log").innerHTML = "";
+  log("Extracting case numbers from PDF only (no MJCS lookup)…");
+
+  const resp = await fetch(`${apiBase}/api/extract-pdf`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({location: selectedSource})
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(()=>({error:resp.statusText}));
+    log("Error: " + (err.error || resp.statusText), "err");
+    return;
+  }
+  const data = await resp.json();
+  log(`Found ${data.total_found} LT case numbers in PDF.`, "ok");
+  data.cases.forEach(c => log(`  ${c.case_number} · ${c.hearing_date || "date TBD"}`));
+  document.getElementById("paste-cases").value = data.cases.map(c => c.case_number).join("\n");
+  switchFetchTab("paste");
+}
+
+// ── PDF upload handler ────────────────────────────────────────────────────────
+async function handlePdfUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById("upload-status").textContent = `Uploading ${file.name}…`;
+  apiBase = document.getElementById("api-url").value.replace(/\/$/, "");
+
+  const fd = new FormData();
+  fd.append("file", file);
+
+  try {
+    const resp = await fetch(`${apiBase}/api/upload-pdf`, { method: "POST", body: fd });
+    if (!resp.ok) throw new Error((await resp.json()).error);
+    const data = await resp.json();
+    document.getElementById("upload-status").textContent = `✓ Found ${data.total_found} LT case numbers. Click "Run now" to look them up.`;
+    // Pre-fill paste box so Run can process them
+    document.getElementById("paste-cases").value = data.cases.map(c => c.case_number).join("\n");
+    // Auto-switch to paste tab for visibility
+    switchFetchTab("paste");
+  } catch(e) {
+    document.getElementById("upload-status").textContent = "Error: " + e.message;
+  }
+}
+
+// Drag and drop
+const uz = document.getElementById("upload-zone");
+uz.addEventListener("dragover", e => { e.preventDefault(); uz.classList.add("drag-over"); });
+uz.addEventListener("dragleave", () => uz.classList.remove("drag-over"));
+uz.addEventListener("drop", e => {
+  e.preventDefault(); uz.classList.remove("drag-over");
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === "application/pdf") {
+    const fakeInput = {files: [f]};
+    handlePdfUpload(fakeInput);
+  }
+});
+
+// ── Cases management ──────────────────────────────────────────────────────────
+function ingestCases(newCases) {
+  newCases.forEach(c => {
+    const existing = cases.findIndex(x => x.case_number === c.case_number);
+    if (existing >= 0) cases[existing] = c; else cases.push(c);
+    if (c.walk_sheet) {
+      const wsi = walkSheets.findIndex(w => w.caseId === c.case_number);
+      if (wsi >= 0) walkSheets[wsi] = {caseId: c.case_number, data: c.walk_sheet, case: c};
+      else walkSheets.push({caseId: c.case_number, data: c.walk_sheet, case: c});
+    }
+  });
+  updateCounts();
+  renderCaseList();
+  renderWalkSheets();
+  showPage("cases");
+  log(`Loaded ${cases.length} total cases, ${walkSheets.length} walk sheets.`, "ok");
+}
+
+function updateCounts() {
+  document.getElementById("nav-case-count").textContent = cases.length;
+  document.getElementById("nav-ws-count").textContent = walkSheets.length;
+
+  const today = new Date().toISOString().split("T")[0];
+  const upcoming = cases.filter(c => c.hearing_date >= today).length;
+  const high = cases.filter(c => {
+    if (!c.walk_sheet) return false;
+    return c.walk_sheet.urgency === "high";
+  }).length;
+
+  document.getElementById("case-stats").style.display = cases.length ? "grid" : "none";
+  document.getElementById("s-total").textContent = cases.length;
+  document.getElementById("s-upcoming").textContent = upcoming;
+  document.getElementById("s-high").textContent = high;
+  document.getElementById("s-ws").textContent = walkSheets.length;
+}
+
+function updateBudget() {
+  const pct = Math.min(100, (totalSpent / 0.20) * 100);
+  document.getElementById("budget-fill").style.width = pct + "%";
+  document.getElementById("budget-text").textContent = `$${totalSpent.toFixed(3)} / $0.20`;
+}
+
+function renderCaseList() {
+  const area = document.getElementById("case-list-area");
+  if (!cases.length) {
+    area.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>No cases loaded.</div>';
+    return;
+  }
+  const today = new Date().toISOString().split("T")[0];
+  area.innerHTML = "";
+  const list = document.createElement("div");
+  list.className = "case-list";
+
+  cases.slice().sort((a,b) => (a.hearing_date||"") < (b.hearing_date||"") ? -1 : 1).forEach(c => {
+    const tenantName = c.tenants?.[0]?.name || "Tenant on record";
+    const tenantAddr = c.tenants?.[0]?.address || c.jurisdiction || "";
+    const daysUntil = c.hearing_date ? Math.ceil((new Date(c.hearing_date) - new Date()) / 86400000) : null;
+    const urgency = c.walk_sheet?.urgency || (daysUntil !== null ? (daysUntil <= 3 ? "high" : daysUntil <= 7 ? "medium" : "low") : "none");
+    const initials = tenantName.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+    const hasWs = walkSheets.some(w => w.caseId === c.case_number);
+
+    const item = document.createElement("div");
+    item.className = "case-item";
+    item.innerHTML = `
+      <div class="case-avatar">${initials}</div>
+      <div class="case-info">
+        <div class="case-name">${tenantName}</div>
+        <div class="case-meta">${c.case_number} · ${c.case_type || "Failure to Pay Rent"} · ${tenantAddr}</div>
+      </div>
+      <div class="case-right">
+        <div class="urgency-badge urgency-${urgency}">${daysUntil !== null ? (daysUntil < 0 ? `${Math.abs(daysUntil)}d ago` : daysUntil === 0 ? "Today" : `${daysUntil}d`) : c.hearing_date || "—"}</div>
+        <div class="small" style="margin-top:4px;">${hasWs ? "✓ walk sheet" : ""}</div>
+      </div>
+    `;
+    item.onclick = () => {
+      if (hasWs) {
+        showWalkSheet(walkSheets.find(w => w.caseId === c.case_number));
+      } else {
+        genSingle(c);
+      }
+    };
+    list.appendChild(item);
+  });
+  area.appendChild(list);
+}
+
+// ── Walk sheet generation ─────────────────────────────────────────────────────
+async function genSingle(c) {
+  showPage("walksheets");
+  document.getElementById("ws-area").innerHTML = '<div class="empty"><div class="loader"></div><p style="margin-top:12px;">Generating walk sheet…</p></div>';
+
+  try {
+    const resp = await fetch(`${apiBase}/api/generate-walk-sheet`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(c)
+    });
+    if (!resp.ok) throw new Error(await resp.text());
+    const ws = await resp.json();
+    totalSpent += 0.003; updateBudget();
+    walkSheets.push({caseId: c.case_number, data: ws, case: c});
+    updateCounts();
+    renderWalkSheets();
+  } catch(e) {
+    document.getElementById("ws-area").innerHTML = `<div class="alert alert-danger">Error: ${e.message}</div>`;
+  }
+}
+
+async function generateAllWalkSheets() {
+  const todo = cases.filter(c => !walkSheets.some(w => w.caseId === c.case_number));
+  if (!todo.length) { showPage("walksheets"); return; }
+  showPage("walksheets");
+  for (const c of todo) {
+    if (totalSpent >= 0.20) { alert("Budget limit ($0.20) reached. Stopping."); break; }
+    await genSingle(c);
+  }
+}
+
+function showWalkSheet(ws) {
+  showPage("walksheets");
+  document.getElementById("ws-area").innerHTML = renderWalkSheetHTML(ws);
+}
+
+function renderWalkSheets() {
+  const area = document.getElementById("ws-area");
+  if (!walkSheets.length) {
+    area.innerHTML = '<div class="empty"><div class="empty-icon">🗂</div>No walk sheets yet.</div>';
+    return;
+  }
+  area.innerHTML = walkSheets.map(renderWalkSheetHTML).join("");
+}
+
+function renderWalkSheetHTML(ws) {
+  const d = ws.data || {};
+  const c = ws.case || {};
+  const tenantName = c.tenants?.[0]?.name || d.case?.tenants?.[0]?.name || "Tenant on record";
+  const tenantAddr = c.tenants?.[0]?.address || d.case?.tenants?.[0]?.address || c.jurisdiction || "";
+  const landlord   = c.landlords?.[0]?.name || c.landlord || "See case file";
+  const hearingDate = c.hearing_date || "TBD";
+  const caseNum    = c.case_number || "—";
+  const caseType   = c.case_type || "Failure to Pay Rent";
+
+  const rights = (d.rights || []).map((r, i) =>
+    `<div class="ws-right"><div class="ws-right-bullet">${i+1}</div><div class="ws-right-body"><span class="ws-right-name">${r.r}:</span> ${r.d}</div></div>`
+  ).join("");
+
+  const actions = (d.actions || []).map((a, i) =>
+    `<div class="ws-action"><div class="ws-action-num">${i+1}</div><div>${a}</div></div>`
+  ).join("");
+
+  const resources = (d.resources || []).map(r =>
+    `<div class="ws-resource"><div class="ws-resource-name">${r.n}</div><div class="ws-resource-contact">${r.c}</div></div>`
+  ).join("");
+
+  const urgencyLabel = d.urgency === "high" ? "🔴 HIGH" : d.urgency === "medium" ? "🟡 MEDIUM" : "🟢 LOW";
+
+  return `<div class="ws-page">
+    <div class="ws-masthead">
+      <div class="ws-org">Baltimore City Tenant Rights Canvassing Project</div>
+      <div class="ws-title">Canvasser Walk Sheet &nbsp;·&nbsp; ${urgencyLabel} urgency</div>
+    </div>
+
+    <div class="ws-meta-grid">
+      <div class="ws-meta-item"><div class="ws-meta-label">Tenant(s)</div><div class="ws-meta-value">${tenantName}</div></div>
+      <div class="ws-meta-item"><div class="ws-meta-label">Hearing date</div><div class="ws-meta-value">${hearingDate}</div></div>
+      <div class="ws-meta-item"><div class="ws-meta-label">Case #</div><div class="ws-meta-value" style="font-size:12px;">${caseNum}</div></div>
+      <div class="ws-meta-item"><div class="ws-meta-label">Address</div><div class="ws-meta-value" style="font-size:12px;">${tenantAddr}</div></div>
+      <div class="ws-meta-item"><div class="ws-meta-label">Landlord</div><div class="ws-meta-value" style="font-size:12px;">${landlord}</div></div>
+      <div class="ws-meta-item"><div class="ws-meta-label">Case type</div><div class="ws-meta-value" style="font-size:12px;">${caseType}</div></div>
+    </div>
+
+    <div class="ws-section">
+      <div class="ws-section-head">Opening script (what to say at the door)</div>
+      <div class="ws-script">${d.opening || "Hi, I'm a volunteer with a tenant rights organization. We noticed you have an upcoming court date and wanted to share some information about your rights and available resources."}</div>
+    </div>
+
+    <div class="ws-section">
+      <div class="ws-section-head">Tenant rights to share</div>
+      <div class="ws-rights">${rights || "<p>See rights reference guide.</p>"}</div>
+    </div>
+
+    <div class="ws-section">
+      <div class="ws-section-head">Immediate action steps</div>
+      <div class="ws-actions">${actions}</div>
+    </div>
+
+    <div class="ws-section">
+      <div class="ws-section-head">Local resources</div>
+      <div class="ws-resources">${resources}</div>
+    </div>
+
+    ${d.tip ? `<div class="ws-tip">📌 Canvasser tip: ${d.tip}</div>` : ""}
+
+    <div class="ws-footer">
+      Generated ${d.generated_at ? new Date(d.generated_at).toLocaleDateString() : "today"} · 
+      Public court record (Md. Real Property Art.) · 
+      This sheet is for informational purposes. Not legal advice. Verify all details before visiting. · 
+      Walk sheet AI-assisted — confirm legal information with a licensed Maryland attorney.
+    </div>
+  </div>`;
+}
+
+// ── Manual entry ──────────────────────────────────────────────────────────────
+async function addManual() {
+  const tenant = document.getElementById("m-tenant").value.trim();
+  const address = document.getElementById("m-address").value.trim();
+  if (!tenant || !address) { alert("Please fill in tenant name and address at minimum."); return; }
+
+  const c = {
+    case_number: document.getElementById("m-casenum").value.trim() || "MANUAL-" + Date.now(),
+    tenants: [{name: tenant, address: address + ", " + document.getElementById("m-city-zip").value.trim()}],
+    landlords: [{name: document.getElementById("m-landlord").value.trim() || "Unknown"}],
+    case_type: document.getElementById("m-casetype").value,
+    hearing_date: document.getElementById("m-date").value || "",
+    jurisdiction: "Baltimore City, MD",
+    status: "Upcoming",
+    notes: document.getElementById("m-notes").value.trim(),
+  };
+
+  cases.push(c);
+  updateCounts();
+  renderCaseList();
+  await genSingle(c);
+  // Clear form
+  ["m-tenant","m-casenum","m-address","m-city-zip","m-landlord","m-notes"].forEach(id => document.getElementById(id).value="");
+  document.getElementById("m-date").value = "";
+}
+
+// ── Connection test ───────────────────────────────────────────────────────────
+async function testConnection() {
+  apiBase = document.getElementById("api-url").value.replace(/\/$/, "");
+  const el = document.getElementById("conn-status");
+  el.textContent = "Testing…";
+  try {
+    const r = await fetch(`${apiBase}/api/health`, {signal: AbortSignal.timeout(5000)});
+    if (r.ok) { el.textContent = "✅ Connected successfully"; el.style.color = "var(--green)"; }
+    else throw new Error(r.statusText);
+  } catch(e) {
+    el.textContent = "❌ Cannot connect — make sure the Flask server is running. Error: " + e.message;
+    el.style.color = "var(--red)";
+  }
+}
+
+// ── Download ──────────────────────────────────────────────────────────────────
+function downloadWalkSheets() {
+  const blob = new Blob([JSON.stringify(walkSheets, null, 2)], {type: "application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `walksheets-${new Date().toISOString().split("T")[0]}.json`; a.click();
+}
+</script>
+
+</body>
+</html>
